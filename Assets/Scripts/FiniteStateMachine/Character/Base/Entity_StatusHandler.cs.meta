@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 9d5a435f856409c43b2c6af4957489a1
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - electrifyEffectPrefab: {fileID: 5139368598731342884, guid: 8ced26b3aecedac4ab4255346cdb7f26, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

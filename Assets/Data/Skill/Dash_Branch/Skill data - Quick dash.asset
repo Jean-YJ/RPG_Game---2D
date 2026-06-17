@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 378b444d5d6f33040ace2c659b06ad73, type: 3}
+  m_Name: Skill data - Quick dash
+  m_EditorClassIdentifier: 
+  isUnlockByDefault: 1
+  displayName: Quick dash
+  icon: {fileID: -1048836920, guid: 6f821656e3aa98c43bd8ef88a5f735d1, type: 3}
+  description: 'Dash to avoid attacks.
+
+    You cannot take damage while dashing.'
+  cost: 1
+  skillType: 0
+  upgradeData:
+    coolDown: 0
+    skillUpgradeType: 1
+    damageScaleData:
+      phyiscal: 1
+      elemental: 1
+      chillDuration: 3
+      chillSlowMulitplier: 0.2
+      burnDuratin: 3
+      burnDamageScale: 1
+      shockDuration: 3
+      shockDamageScale: 1
+      shockCharge: 0.4

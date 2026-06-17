@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44a33adeabeaa21469a48e23d64f08c6, type: 3}
+  m_Name: Material data - Baguete
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData_SO
+  itemName: Baguete
+  itemIcon: {fileID: -360652448, guid: 6f821656e3aa98c43bd8ef88a5f735d1, type: 3}
+  itemType: 0
+  maxStackSize: 25
+  itemEffect: {fileID: 0}
+  craftRecipe: []
+  itemPrice: 100
+  minShopStackSize: 1
+  maxShopStackSize: 5
+  itemRarity: 300
+  dropChance: 70.1
+  maxDropChance: 80
