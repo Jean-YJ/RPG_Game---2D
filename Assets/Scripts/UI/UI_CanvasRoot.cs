@@ -1,18 +1,19 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
-public class UI_CanvasRoot : MonoBehaviour
+public class UI_CanvasRoot : MonoBehaviour, IUIView
 {
     private static UI_CanvasRoot instance;
-    public static UI_CanvasRoot Instance;
+    public static UI_CanvasRoot Instance => instance;
     private UI_CanvasRoot() { }
 
     private PlayerInputSet p_InputSet;
+    private UI_CanvasRootPresenter presenter;
     public bool alternativeInput;
 
-    [SerializeField] private GameObject[] uiElements; //不包含InGame和和各种ToolTip
+    [SerializeField] private GameObject[] uiElements;
     public UI_SkillToolTip skillToolTip;
     public UI_SkillTree skillTree;
-    private bool skillTreeEnabled;
     public UI_ItemToolTip itemToolTip;
     public UI_StatToolTip statToolTip;
     public UI_Inventory inventory;
@@ -23,7 +24,9 @@ public class UI_CanvasRoot : MonoBehaviour
     public UI_Setting uiSetting;
     public UI_DeathPanel deathPanel;
     public UI_FadeScreen fadeScreen;
-    private bool inventoryEnabled;
+
+    public bool IsSkillTreeVisible => this.skillTree != null && this.skillTree.gameObject.activeSelf;
+    public bool IsInventoryVisible => this.inventory != null && this.inventory.gameObject.activeSelf;
 
     void Awake()
     {
@@ -43,8 +46,7 @@ public class UI_CanvasRoot : MonoBehaviour
         this.deathPanel = this.GetComponentInChildren<UI_DeathPanel>(true);
         this.fadeScreen = this.GetComponentInChildren<UI_FadeScreen>(true);
 
-        this.skillTreeEnabled = this.skillTree.gameObject.activeSelf;
-        this.inventoryEnabled = this.inventory.gameObject.activeSelf;
+        EnsurePresenter();
     }
 
     void Start()
@@ -54,136 +56,190 @@ public class UI_CanvasRoot : MonoBehaviour
 
     public void SetUpInputUIControl(PlayerInputSet inputSet)
     {
+        UnbindInputUIControl();
         this.p_InputSet = inputSet;
 
-        this.p_InputSet.UI.SkillTreeUI.performed += ctx => this.ToggleSkillTreeUI();
-        this.p_InputSet.UI.InventoryUI.performed += ctx => this.ToggleInventoryUI();
+        if (this.p_InputSet == null)
+            return;
 
-        this.p_InputSet.UI.Alternative.performed += ctx => this.alternativeInput = true;
-        this.p_InputSet.UI.Alternative.canceled += ctx => this.alternativeInput = false;
-
-        //按下SettingUI按键
-        this.p_InputSet.UI.SettingUI.performed += ctx =>
-        {
-            foreach (var element in this.uiElements)
-            {
-                if (element.gameObject.activeSelf)
-                {
-                    //如果有界面显示中，就返回InGameUI
-                    SwitchToInGameUI();
-                    return;
-                }
-            }
-            // 进入设置界面
-            ShowSettingUI();
-            Time.timeScale = 1;
-        };
+        BindInputUIControl();
     }
 
-    //设置p_InputSet.Player相关输入的启用和禁止
-    private void EnableInputPlayerControl(bool enable)
+    private void BindInputUIControl()
     {
+        this.p_InputSet.UI.SkillTreeUI.performed += OnSkillTreeUIPerformed;
+        this.p_InputSet.UI.InventoryUI.performed += OnInventoryUIPerformed;
+        this.p_InputSet.UI.Alternative.performed += OnAlternativePerformed;
+        this.p_InputSet.UI.Alternative.canceled += OnAlternativeCanceled;
+        this.p_InputSet.UI.SettingUI.performed += OnSettingUIPerformed;
+    }
+
+    private void UnbindInputUIControl()
+    {
+        if (this.p_InputSet == null)
+            return;
+
+        this.p_InputSet.UI.SkillTreeUI.performed -= OnSkillTreeUIPerformed;
+        this.p_InputSet.UI.InventoryUI.performed -= OnInventoryUIPerformed;
+        this.p_InputSet.UI.Alternative.performed -= OnAlternativePerformed;
+        this.p_InputSet.UI.Alternative.canceled -= OnAlternativeCanceled;
+        this.p_InputSet.UI.SettingUI.performed -= OnSettingUIPerformed;
+    }
+
+    private void OnDestroy()
+    {
+        UnbindInputUIControl();
+        this.presenter?.Detach();
+    }
+
+    private void OnSkillTreeUIPerformed(InputAction.CallbackContext ctx) => ToggleSkillTreeUI();
+    private void OnInventoryUIPerformed(InputAction.CallbackContext ctx) => ToggleInventoryUI();
+    private void OnAlternativePerformed(InputAction.CallbackContext ctx) => this.alternativeInput = true;
+    private void OnAlternativeCanceled(InputAction.CallbackContext ctx) => this.alternativeInput = false;
+
+    private void OnSettingUIPerformed(InputAction.CallbackContext ctx)
+    {
+        EnsurePresenter();
+        this.presenter.HandleSettingInput();
+    }
+
+    /// <summary>
+    /// 设置玩家输入是否启用。
+    /// View 持有输入对象，Presenter 只决定何时启用或禁用。
+    /// </summary>
+    public void SetPlayerInputEnabled(bool enable)
+    {
+        if (this.p_InputSet == null)
+            return;
+
         if (enable)
             this.p_InputSet.Player.Enable();
         else
             this.p_InputSet.Player.Disable();
     }
 
-    private void StopInputPlayerControlIfNeeded()
+    /// <summary>
+    /// 根据根 UI 面板是否打开，刷新玩家输入状态。
+    /// 只要存在一个根 UI 面板处于显示状态，就禁止玩家移动/战斗输入。
+    /// </summary>
+    public void RefreshPlayerInputByOpenPanels()
+    {
+        SetPlayerInputEnabled(!HasAnyRootUIOpen());
+    }
+
+    /// <summary>
+    /// 判断是否有任意根 UI 面板处于打开状态。
+    /// 该判断给 Presenter 使用，用于决定是否恢复玩家输入。
+    /// </summary>
+    public bool HasAnyRootUIOpen()
     {
         foreach (var element in this.uiElements)
         {
-            if (element.gameObject.activeSelf)
-            {
-                EnableInputPlayerControl(false);
-                return;
-            }
+            if (element != null && element.gameObject.activeSelf)
+                return true;
         }
-        EnableInputPlayerControl(true);
-    }
 
+        return false;
+    }
 
     public void ToggleSkillTreeUI()
     {
-        this.skillTree.transform.SetAsLastSibling();
-        SetAllToolTipAtLastSibling();
-        this.fadeScreen.transform.SetAsLastSibling();
-
-        this.skillTreeEnabled = !this.skillTreeEnabled;
-        this.skillTree.gameObject.SetActive(this.skillTreeEnabled);
-        this.skillToolTip.ShowToolTip(false);
-
-        //打开SkillTreeUI界面，禁止Player输入
-        StopInputPlayerControlIfNeeded();
+        EnsurePresenter();
+        this.presenter.ToggleSkillTreeUI();
     }
 
     public void ToggleInventoryUI()
     {
-        this.inventory.transform.SetAsLastSibling();
-        SetAllToolTipAtLastSibling();
-        this.fadeScreen.transform.SetAsLastSibling();
-
-        this.inventoryEnabled = !this.inventoryEnabled;
-        this.inventory.gameObject.SetActive(this.inventoryEnabled);
-        this.itemToolTip.ShowToolTip(false);
-        this.statToolTip.ShowToolTip(false);
-
-        //打开InventoryUI界面，禁止Player输入
-        StopInputPlayerControlIfNeeded();
+        EnsurePresenter();
+        this.presenter.ToggleInventoryUI();
     }
 
     public void ShowStorageUI(bool status)
     {
-        this.storage.transform.SetAsLastSibling();
-        SetAllToolTipAtLastSibling();
-        this.fadeScreen.transform.SetAsLastSibling();
-
-        this.storage.gameObject.SetActive(status);
-        EnableInputPlayerControl(!status);
-
-        if (!status)
-        {
-            this.craft.gameObject.SetActive(status);
-            CloseAllToolTip();
-        }
+        EnsurePresenter();
+        this.presenter.ShowStorageUI(status);
     }
 
     public void ShowMerchantUI(bool status)
     {
-        this.merchant.transform.SetAsLastSibling();
-        SetAllToolTipAtLastSibling();
-        this.fadeScreen.transform.SetAsLastSibling();
-
-        this.merchant.gameObject.SetActive(status);
-        EnableInputPlayerControl(!status);
-
-        if (!status)
-            CloseAllToolTip();
+        EnsurePresenter();
+        this.presenter.ShowMerchantUI(status);
     }
+
     public void ShowSettingUI()
     {
-
-        CloseAllToolTip();
-        EnableInputPlayerControl(false);
-        SwitchTo(this.uiSetting.gameObject);
+        EnsurePresenter();
+        this.presenter.ShowSettingUI();
     }
 
     public void SwitchToInGameUI()
     {
-        CloseAllToolTip();
-        EnableInputPlayerControl(true);
-        SwitchTo(this.inGameUI.gameObject);
-
-        this.inventoryEnabled = false;
-        this.skillTreeEnabled = false;
+        EnsurePresenter();
+        this.presenter.SwitchToInGameUI();
     }
 
     public void ShowDeathPanel()
     {
-        SwitchTo(this.deathPanel.gameObject);
-
-        this.p_InputSet.Disable(); //手柄的话此处要调整
+        EnsurePresenter();
+        this.presenter.ShowDeathPanel();
     }
+
+    /// <summary>
+    /// View 显示职责：切换技能树面板显示，并处理层级和 Tooltip。
+    /// </summary>
+    public void ShowSkillTree(bool status)
+    {
+        BringPanelToFront(this.skillTree.transform);
+        this.skillTree.gameObject.SetActive(status);
+        this.skillToolTip.ShowToolTip(false);
+    }
+
+    /// <summary>
+    /// View 显示职责：切换背包面板显示，并关闭相关 Tooltip。
+    /// </summary>
+    public void ShowInventory(bool status)
+    {
+        BringPanelToFront(this.inventory.transform);
+        this.inventory.gameObject.SetActive(status);
+        this.itemToolTip.ShowToolTip(false);
+        this.statToolTip.ShowToolTip(false);
+    }
+
+    /// <summary>
+    /// View 显示职责：切换仓库面板显示。
+    /// </summary>
+    public void ShowStorage(bool status)
+    {
+        BringPanelToFront(this.storage.transform);
+        this.storage.gameObject.SetActive(status);
+    }
+
+    /// <summary>
+    /// View 显示职责：切换商人面板显示。
+    /// </summary>
+    public void ShowMerchant(bool status)
+    {
+        BringPanelToFront(this.merchant.transform);
+        this.merchant.gameObject.SetActive(status);
+    }
+
+    /// <summary>
+    /// View 显示职责：切换打造面板显示。
+    /// </summary>
+    public void ShowCraft(bool status)
+    {
+        this.craft.gameObject.SetActive(status);
+    }
+
+    /// <summary>
+    /// 禁用当前输入集合。
+    /// 死亡面板打开后需要阻止玩家继续操作。
+    /// </summary>
+    public void DisableAllInput()
+    {
+        this.p_InputSet?.Disable();
+    }
+
     public void SwitchTo(GameObject target)
     {
         foreach (var element in this.uiElements)
@@ -192,16 +248,40 @@ public class UI_CanvasRoot : MonoBehaviour
         target.SetActive(true);
     }
 
+    /// <summary>
+    /// 将目标面板和 Tooltip、FadeScreen 放到更高层级，避免被其他 UI 遮挡。
+    /// </summary>
+    public void BringPanelToFront(Transform target)
+    {
+        target.SetAsLastSibling();
+        SetAllToolTipAtLastSibling();
+        this.fadeScreen.transform.SetAsLastSibling();
+    }
+
     public void SetAllToolTipAtLastSibling()
     {
         this.skillToolTip.transform.SetAsLastSibling();
         this.itemToolTip.transform.SetAsLastSibling();
         this.statToolTip.transform.SetAsLastSibling();
     }
+
     public void CloseAllToolTip()
     {
         this.skillToolTip.ShowToolTip(false);
         this.itemToolTip.ShowToolTip(false);
         this.statToolTip.ShowToolTip(false);
+    }
+
+    /// <summary>
+    /// 确保 View 已绑定 Presenter。
+    /// 使用普通 C# 对象承载流程逻辑，避免本轮需要修改 Canvas.prefab。
+    /// </summary>
+    private void EnsurePresenter()
+    {
+        if (this.presenter != null)
+            return;
+
+        this.presenter = new UI_CanvasRootPresenter();
+        this.presenter.Attach(this);
     }
 }

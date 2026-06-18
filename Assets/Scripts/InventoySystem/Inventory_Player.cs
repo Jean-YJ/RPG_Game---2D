@@ -119,10 +119,18 @@ public class Inventory_Player : Inventory_Base
 
     public void TryToUseItem(Inventory_Item itemToUse)
     {
+        //传入物品空值检查
+        if (itemToUse == null || itemToUse.itemData == null)
+            return;
+
+        //查找消耗品时跳过空物品和空itemData
         //此处判断条件必须使用item == itemToUse，而不能使用item.itemData == itemToUse.itemData
         //因为背包里可能有多个相同类型的物品，使用item.itemData == itemToUse.itemData的条件会导致
         // 找到第一个相同类型的物品，而不是正在使用的这个物品
-        Inventory_Item cosumableItem = itemList.Find(item => item == itemToUse && item.itemData.itemType == ItemType.Consumable);
+        Inventory_Item cosumableItem = itemList.Find(item => item != null && item == itemToUse && item.itemData != null && item.itemData.itemType == ItemType.Consumable);
+
+        if (cosumableItem == null || cosumableItem.itemEffectData == null)
+            return;
 
         // 运行时多态，cosumableItem.itemEffectData的实际类型可能是ItemBuffData_SO，也可能是其他继承自ItemEffectData_SO的类
         // 具体由Object_ItemPickup中创建Inventory_Item时（ItemBuffData_SO父类装载其子类）根据itemData.itemEffect来决定
@@ -154,10 +162,14 @@ public class Inventory_Player : Inventory_Base
 
     public void TryToUseQuickItem(int slotNumber)
     {
+        //边界检查
+        if (slotNumber < 1 || slotNumber > this.quickItems.Length)
+            return;
+
         int index = slotNumber - 1;
         var item = this.quickItems[index];
 
-        if (item.itemData == null) return;
+        if (item == null || item.itemData == null) return;
 
         this.TryToUseItem(item);
 
@@ -176,6 +188,7 @@ public class Inventory_Player : Inventory_Base
         // base.LoadData(data);
         this.gold = data.gold;
 
+        //背包物品
         this.itemList.Clear();
         foreach (var entry in data.playerInventory)
         {
@@ -196,6 +209,7 @@ public class Inventory_Player : Inventory_Base
             }
         }
 
+        //装备
         foreach (var entry in data.equipedItems)
         {
             string saveID = entry.Key;

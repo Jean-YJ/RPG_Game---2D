@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.InputSystem;
 
 public class Player : Entity
 {
@@ -66,20 +67,26 @@ public class Player : Entity
 
     void OnEnable()
     {
+        if (this.p_Input == null)
+            return;
+
+        //绑定前先进行一次解绑，避免重复
+        UnbindInputActions();
+        BindInputActions();
         this.p_Input.Enable();
 
         // this.p_Input.Player.Movement.started     输入事件刚开始，例如：开始按下按键
         // this.p_Input.Player.Movement.performed   输入事件进行中，例如：完全按下按键、按键持续处于按下状态
         // this.p_Input.Player.Movement.canceled    输入事件结束，例如：松开按键
-        this.p_Input.Player.Movement.performed += (callbackcontext) =>
-        {
-            // Debug.Log(callbackcontext.ReadValue<Vector2>());
-            this.movementInput = callbackcontext.ReadValue<Vector2>();
-        };
-        this.p_Input.Player.Movement.canceled += (callbackcontext) =>
-        {
-            this.movementInput = Vector2.zero;
-        };
+        // this.p_Input.Player.Movement.performed += (callbackcontext) =>
+        // {
+        //     // Debug.Log(callbackcontext.ReadValue<Vector2>());
+        //     this.movementInput = callbackcontext.ReadValue<Vector2>();
+        // };
+        // this.p_Input.Player.Movement.canceled += (callbackcontext) =>
+        // {
+        //     this.movementInput = Vector2.zero;
+        // };
         // this.p_Input.Player.ToggleSkillTreeUI.performed += (callbackcontext) =>
         // {
         //     this.canvasRoot.ToggleSkillTreeUI();
@@ -88,31 +95,48 @@ public class Player : Entity
         // {
         //     this.canvasRoot.ToggleInventoryUI();
         // };
-        this.p_Input.Player.Spell.performed += (callbackcontext) =>
-        {
-            this.skillManager.shard.Try2UseSkill();
-        };
-        this.p_Input.Player.Spell.performed += (callbackcontext) =>
-        {
-            this.skillManager.timeEcho.Try2UseSkill();
-        };
-        this.p_Input.Player.Mouse.performed += (callbackcontext) =>
-        {
-            this.mousePosition = callbackcontext.ReadValue<Vector2>();
-        };
-        this.p_Input.Player.Interact.performed += (callbackcontext) =>
-        {
-            TryInteract();
-        };
-        this.p_Input.Player.QuickItem1.performed += (callbackcontext) =>
-        {
-            this.playerInventory.TryToUseQuickItem(1);
-        };
-        this.p_Input.Player.QuickItem2.performed += (callbackcontext) =>
-        {
-            this.playerInventory.TryToUseQuickItem(2);
-        };
     }
+
+    private void BindInputActions()
+    {
+        // this.p_Input.Player.Movement.started     输入事件刚开始，例如：开始按下按键
+        // this.p_Input.Player.Movement.performed   输入事件进行中，例如：完全按下按键、按键持续处于按下状态
+        // this.p_Input.Player.Movement.canceled    输入事件结束，例如：松开按键
+        this.p_Input.Player.Movement.performed += OnMovementPerformed;
+        this.p_Input.Player.Movement.canceled += OnMovementCanceled;
+        this.p_Input.Player.Spell.performed += OnSpellPerformed;
+        this.p_Input.Player.Mouse.performed += OnMousePerformed;
+        this.p_Input.Player.Interact.performed += OnInteractPerformed;
+        this.p_Input.Player.QuickItem1.performed += OnQuickItem1Performed;
+        this.p_Input.Player.QuickItem2.performed += OnQuickItem2Performed;
+    }
+
+    private void UnbindInputActions()
+    {
+        if (this.p_Input == null)
+            return;
+
+        this.p_Input.Player.Movement.performed -= OnMovementPerformed;
+        this.p_Input.Player.Movement.canceled -= OnMovementCanceled;
+        this.p_Input.Player.Spell.performed -= OnSpellPerformed;
+        this.p_Input.Player.Mouse.performed -= OnMousePerformed;
+        this.p_Input.Player.Interact.performed -= OnInteractPerformed;
+        this.p_Input.Player.QuickItem1.performed -= OnQuickItem1Performed;
+        this.p_Input.Player.QuickItem2.performed -= OnQuickItem2Performed;
+    }
+
+    private void OnMovementPerformed(InputAction.CallbackContext callbackcontext) => this.movementInput = callbackcontext.ReadValue<Vector2>();
+    private void OnMovementCanceled(InputAction.CallbackContext callbackcontext) => this.movementInput = Vector2.zero;
+    private void OnSpellPerformed(InputAction.CallbackContext callbackcontext)
+    {
+        this.skillManager.shard.Try2UseSkill();
+        this.skillManager.timeEcho.Try2UseSkill();
+    }
+    private void OnMousePerformed(InputAction.CallbackContext callbackcontext) => this.mousePosition = callbackcontext.ReadValue<Vector2>();
+    private void OnInteractPerformed(InputAction.CallbackContext callbackcontext) => TryInteract();
+    private void OnQuickItem1Performed(InputAction.CallbackContext callbackcontext) => this.playerInventory.TryToUseQuickItem(1);
+    private void OnQuickItem2Performed(InputAction.CallbackContext callbackcontext) => this.playerInventory.TryToUseQuickItem(2);
+
     protected override void Awake()
     {
         base.Awake();
@@ -237,6 +261,10 @@ public class Player : Entity
 
     void OnDisable()
     {
+        UnbindInputActions();
+        if (this.p_Input == null)
+            return;
+
         this.p_Input.Disable();
     }
 }

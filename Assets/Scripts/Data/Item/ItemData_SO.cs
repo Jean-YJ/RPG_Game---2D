@@ -1,11 +1,17 @@
 using System.Collections.Generic;
+
+//在 Player Build 中，`UnityEditor` 命名空间不可用。
+//运行时脚本顶部直接 `using UnityEditor;` 可能导致打包编译失败。
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
+
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "RPG SetUp/Item Data/Material item", fileName = "Material data - ")]
 public class ItemData_SO : ScriptableObject
 {
-    public string saveID{ get; private set; }
+    public string saveID { get; private set; }
 
     [Header("Item details")]
     public string itemName;
